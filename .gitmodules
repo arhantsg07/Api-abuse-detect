@@ -1,3 +1,0 @@
-[submodule "admin-ui"]
-	path = admin-ui
-	url = git@github.com:arhantsg07/API-abuse-detection.git
