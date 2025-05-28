@@ -1,41 +1,15 @@
-# from flask import Flask, jsonify
-# from flask_cors import CORS
-# import redis
-
-# app = Flask(__name__)
-# CORS(app)
-# r = redis.Redis(host='127.0.0.1', port=6379, decode_responses=True)
-
-# @app.route('/admin/metrics')
-# def get_metrics():
-#     ip_keys = r.keys('rate_limit:ip:*')
-#     key_keys = r.keys('rate_limit:key:*')
-#     rep_keys = r.keys('reputation:*')
-#     blocked_keys = r.keys('blocked:*')
-
-#     def make_dict(keys):
-#         return {k: r.get(k) for k in keys}
-
-#     return jsonify({
-#         "rate_by_ip": make_dict(ip_keys),
-#         "rate_by_key": make_dict(key_keys),
-#         "reputation_scores": make_dict(rep_keys),
-#         "blocked_requests": make_dict(blocked_keys)
-#     })
-
-# if __name__ == '__main__':
-#     app.run(host='127.0.0.1', port=8082)
 from flask import Flask, jsonify
 from flask_cors import CORS
 import redis
 import re
 from collections import defaultdict
 
-from rate_limiter.detector import get_detection_stats
+from detector import get_detection_stats
+from redis_client import get_redis_connection
 
 app = Flask(__name__)
 CORS(app)
-r = redis.Redis(host='127.0.0.1', port=6379, decode_responses=True)
+r = get_redis_connection()
 
 def aggregate_by_entity(keys, prefix):
     data = defaultdict(int)
@@ -55,12 +29,18 @@ def get_metrics():
 
     reputation = {k: r.get(k) for k in r.keys('reputation:*')}
     blocked = {k: r.get(k) for k in r.keys('blocked:*')}
+    
+    # Fetch model training stats
+    model_stats_key = "model:training:stats"
+    model_stats = r.hgetall(model_stats_key)
+    print(f"[DEBUG] Fetched model_stats from Redis: {model_stats}") # Debug print
 
     return jsonify({
         "rate_by_ip": ip_data,
         "rate_by_key": key_data,
         "reputation_scores": reputation,
-        "blocked_requests": blocked
+        "blocked_requests": blocked,
+        "model_training_stats": model_stats
     })
 
 @app.route("/admin/detection-stats", methods=["GET"])
